@@ -15,6 +15,9 @@
 %     friendly melody instead of a repeated alarm.
 %
 % Output: 44.1 kHz, 16-bit mono WAV files in ../audio/
+% Runs in MATLAB and in GNU Octave.
+
+function make_alert_chimes()
 
 fs      = 44100;              % sample rate (Hz)
 peakdB  = -3;                 % common peak level for all stages (dBFS)
@@ -48,6 +51,7 @@ audiowrite(fullfile(outDir, 'stage1.wav'), g * s1 / max(abs(s1)), fs, 'BitsPerSa
 audiowrite(fullfile(outDir, 'stage2.wav'), g * s2 / max(abs(s2)), fs, 'BitsPerSample', 16);
 audiowrite(fullfile(outDir, 'stage3.wav'), g * s3 / max(abs(s3)), fs, 'BitsPerSample', 16);
 fprintf('Wrote stage1.wav, stage2.wav and stage3.wav to %s\n', outDir);
+end
 
 % ============================================================================
 function y = sequence(fs, freqs, onsets, timbre, totalLen)

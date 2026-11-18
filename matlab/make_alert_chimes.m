@@ -7,10 +7,12 @@
 %   * Stage 1: one soft chime.
 %   * Stage 2: three chimes.
 %   * Stage 3: six fast chimes (the voice message and wheel vibration follow).
-%   * Tones sit at 880-1760 Hz, above most road and engine noise, where the
-%     ear is sensitive, but below the shrill range above 3 kHz.
-%   * Every chime has a soft 8 ms attack and a natural bell-like decay, so
-%     there are no clicks and nothing sounds like a harsh buzzer.
+%   * Tones sit at 880-1320 Hz, above most road and engine noise, where the
+%     ear is sensitive, but well below the shrill range.
+%   * Every chime fades in over 20-40 ms and fades out smoothly, so there
+%     are no clicks and nothing sounds like a harsh buzzer.
+%   * Overtones are kept weak and a gentle low-pass filter (2.5 kHz) damps
+%     the high end, so the chimes sound round and soft rather than sharp.
 %   * Notes come from the A major chord, so a sequence sounds like a short,
 %     friendly melody instead of a repeated alarm.
 %
@@ -24,26 +26,27 @@ peakdB  = -3;                 % common peak level for all stages (dBFS)
 outDir  = fullfile(fileparts(mfilename('fullpath')), '..', 'audio');
 if ~exist(outDir, 'dir'), mkdir(outDir); end
 
-A5 = 880; Cs6 = 1108.73; E6 = 1318.51; A6 = 1760;
+A5 = 880; Cs6 = 1108.73; E6 = 1318.51;
+lpHz = 2500;                  % low-pass cutoff that damps the high end (Hz)
 
 % ---- Stage 1: one soft, warm chime -----------------------------------------
 % Darker timbre (weak overtones) and a long gentle decay: a nudge, not an alarm.
-soft  = struct('partials', [1 2 3], 'amps', [1 0.18 0.05], ...
-               'taus', [0.30 0.15 0.08], 'len', 0.9);
-s1 = sequence(fs, A5, 0, soft, 1.2);
+soft  = struct('partials', [1 2 3], 'amps', [1 0.10 0.02], ...
+               'taus', [0.35 0.15 0.08], 'len', 1.0, 'attack', 0.040, 'release', 0.15);
+s1 = damp(sequence(fs, A5, 0, soft, 1.2), fs, lpHz);
 
 % ---- Stage 2: three chimes, rising arpeggio --------------------------------
 % A5 -> C#6 -> E6 every 0.40 s. Rising pitch asks for attention politely.
-mid   = struct('partials', [1 2 3 4.2], 'amps', [1 0.30 0.12 0.05], ...
-               'taus', [0.22 0.12 0.07 0.04], 'len', 0.6);
-s2 = sequence(fs, [A5 Cs6 E6], 0.40 * (0:2), mid, 1.6);
+mid   = struct('partials', [1 2 3], 'amps', [1 0.15 0.04], ...
+               'taus', [0.25 0.12 0.07], 'len', 0.7, 'attack', 0.030, 'release', 0.12);
+s2 = damp(sequence(fs, [A5 Cs6 E6], 0.40 * (0:2), mid, 1.6), fs, lpHz);
 
 % ---- Stage 3: six fast chimes ----------------------------------------------
-% The arpeggio twice, one step higher, every 0.16 s. Brighter overtones and
-% shorter decays keep the fast pulses crisp and clearly separate.
-bright = struct('partials', [1 2 3 4.2], 'amps', [1 0.45 0.22 0.10], ...
-                'taus', [0.12 0.07 0.05 0.03], 'len', 0.35);
-s3 = sequence(fs, [Cs6 E6 A6 Cs6 E6 A6], 0.16 * (0:5), bright, 1.4);
+% The same arpeggio twice, every 0.16 s. Shorter decays keep the fast
+% pulses clearly separate; urgency comes from the pace, not from sharpness.
+fast  = struct('partials', [1 2 3], 'amps', [1 0.20 0.06], ...
+               'taus', [0.14 0.07 0.05], 'len', 0.40, 'attack', 0.020, 'release', 0.10);
+s3 = damp(sequence(fs, [A5 Cs6 E6 A5 Cs6 E6], 0.16 * (0:5), fast, 1.4), fs, lpHz);
 
 % ---- Normalise to the same peak and save -----------------------------------
 g = 10^(peakdB/20);
@@ -76,8 +79,14 @@ function c = chime(fs, f0, tb)
         % two copies detuned by +/-1.2 Hz give a gentle shimmer
         c = c + tb.amps(p) * env .* 0.5 .* (sin(2*pi*(f - 1.2)*t) + sin(2*pi*(f + 1.2)*t));
     end
-    att = round(0.008 * fs);                        % 8 ms raised-cosine attack
+    att = round(tb.attack * fs);                    % raised-cosine fade-in
     c(1:att) = c(1:att) .* (0.5 - 0.5*cos(pi*(0:att-1)'/att));
-    rel = round(0.030 * fs);                        % 30 ms fade at the tail
+    rel = round(tb.release * fs);                   % raised-cosine fade-out
     c(end-rel+1:end) = c(end-rel+1:end) .* (0.5 + 0.5*cos(pi*(0:rel-1)'/rel));
+end
+
+function y = damp(x, fs, fc)
+% Gentle damping: two passes of a one-pole low-pass filter (12 dB/octave).
+    a = exp(-2*pi*fc/fs);
+    y = filter(1 - a, [1 -a], filter(1 - a, [1 -a], x));
 end

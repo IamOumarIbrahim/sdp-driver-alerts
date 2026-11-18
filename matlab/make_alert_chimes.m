@@ -7,13 +7,13 @@
 %   * Stage 1: one soft chime.
 %   * Stage 2: three chimes.
 %   * Stage 3: six fast chimes (the voice message and wheel vibration follow).
-%   * Tones sit at 880-1320 Hz, above most road and engine noise, where the
-%     ear is sensitive, but well below the shrill range.
-%   * Every chime fades in over 20-40 ms and fades out smoothly, so there
-%     are no clicks and nothing sounds like a harsh buzzer.
-%   * Overtones are kept weak and a gentle low-pass filter (2.5 kHz) damps
-%     the high end, so the chimes sound round and soft rather than sharp.
-%   * Notes come from the A major chord, so a sequence sounds like a short,
+%   * Tones sit at 587-880 Hz (D5 to A5): warm rather than piercing, and
+%     still above most road and engine noise, which lies below ~500 Hz.
+%   * Every chime fades in over 35-55 ms and fades out over 150-200 ms, so
+%     there are no clicks and nothing sounds like a harsh buzzer.
+%   * Overtones are kept very weak and a low-pass filter (734 Hz, 12 dB per
+%     octave) damps the high end, so the chimes sound round and soft.
+%   * Notes come from the D major chord, so a sequence sounds like a short,
 %     friendly melody instead of a repeated alarm.
 %
 % Output: 44.1 kHz, 16-bit mono WAV files in ../audio/
@@ -26,27 +26,27 @@ peakdB  = -3;                 % common peak level for all stages (dBFS)
 outDir  = fullfile(fileparts(mfilename('fullpath')), '..', 'audio');
 if ~exist(outDir, 'dir'), mkdir(outDir); end
 
-A5 = 880; Cs6 = 1108.73; E6 = 1318.51;
-lpHz = 2500;                  % low-pass cutoff that damps the high end (Hz)
+D5 = 587.33; Fs5 = 739.99; A5 = 880;
+lpHz = 734;                   % low-pass cutoff that damps the high end (Hz)
 
 % ---- Stage 1: one soft, warm chime -----------------------------------------
 % Darker timbre (weak overtones) and a long gentle decay: a nudge, not an alarm.
-soft  = struct('partials', [1 2 3], 'amps', [1 0.10 0.02], ...
-               'taus', [0.35 0.15 0.08], 'len', 1.0, 'attack', 0.040, 'release', 0.15);
-s1 = damp(sequence(fs, A5, 0, soft, 1.2), fs, lpHz);
+soft  = struct('partials', [1 2 3], 'amps', [1 0.055 0.011], ...
+               'taus', [0.35 0.15 0.08], 'len', 1.0, 'attack', 0.055, 'release', 0.20);
+s1 = damp(sequence(fs, D5, 0, soft, 1.2), fs, lpHz);
 
 % ---- Stage 2: three chimes, rising arpeggio --------------------------------
-% A5 -> C#6 -> E6 every 0.40 s. Rising pitch asks for attention politely.
-mid   = struct('partials', [1 2 3], 'amps', [1 0.15 0.04], ...
-               'taus', [0.25 0.12 0.07], 'len', 0.7, 'attack', 0.030, 'release', 0.12);
-s2 = damp(sequence(fs, [A5 Cs6 E6], 0.40 * (0:2), mid, 1.6), fs, lpHz);
+% D5 -> F#5 -> A5 every 0.40 s. Rising pitch asks for attention politely.
+mid   = struct('partials', [1 2 3], 'amps', [1 0.0825 0.022], ...
+               'taus', [0.25 0.12 0.07], 'len', 0.7, 'attack', 0.045, 'release', 0.17);
+s2 = damp(sequence(fs, [D5 Fs5 A5], 0.40 * (0:2), mid, 1.6), fs, lpHz);
 
 % ---- Stage 3: six fast chimes ----------------------------------------------
 % The same arpeggio twice, every 0.16 s. Shorter decays keep the fast
 % pulses clearly separate; urgency comes from the pace, not from sharpness.
-fast  = struct('partials', [1 2 3], 'amps', [1 0.20 0.06], ...
-               'taus', [0.14 0.07 0.05], 'len', 0.40, 'attack', 0.020, 'release', 0.10);
-s3 = damp(sequence(fs, [A5 Cs6 E6 A5 Cs6 E6], 0.16 * (0:5), fast, 1.4), fs, lpHz);
+fast  = struct('partials', [1 2 3], 'amps', [1 0.11 0.033], ...
+               'taus', [0.14 0.07 0.05], 'len', 0.40, 'attack', 0.035, 'release', 0.15);
+s3 = damp(sequence(fs, [D5 Fs5 A5 D5 Fs5 A5], 0.16 * (0:5), fast, 1.4), fs, lpHz);
 
 % ---- Normalise to the same peak and save -----------------------------------
 g = 10^(peakdB/20);
